@@ -1,6 +1,9 @@
 from typing import Optional
+from fastapi import HTTPException,status
 from pydantic import BaseModel, validator
 from passlib.context import CryptContext
+from config.db import engine
+from models.User import User
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -41,11 +44,8 @@ class LoginUser(BaseModel):
     password:str
 
 
+
 class UserPublic(BaseModel):
     anb:int
     name:str
 
-
-class MoneyTransfer(BaseModel):
-    money_to_send: int
-    account_to_send: int
