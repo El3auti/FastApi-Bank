@@ -1,10 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from untils.auth import create_token,validate_user,auth_user
-from untils.users import create_user
+from utils.auth import create_token,validate_user,auth_user
+from utils.users import create_user
 from sqlalchemy.exc import SQLAlchemyError
-from dotenv import load_dotenv
-import os
 from schema.users  import LoginUser,UserCreate,UserPublic,UserPrivate
 from models.User import User
 from config.db import engine
@@ -24,7 +22,6 @@ async def create_user(user:UserCreate):
             raise HTTPException(status_code=500, detail=str(e))
         return user
 
-
 @router.get('/users',status_code=200)
 async def get_all_users():
     with engine.connect() as conection:
@@ -41,16 +38,7 @@ async def get_user(anb:int):
         except AttributeError:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="user anb incorrected, please try again in a few seconds")
 
-    
-
 oauth = OAuth2PasswordBearer(tokenUrl="/login")
-
-load_dotenv()
-
-SECRET_KEY = os.getenv("SECRET_KEY")
-ALGORITHM = os.getenv("ALGORITHM")
-ACCESS_TOKEN_EXPIRE_MINUTES = os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES")
-
 @router.post('/login')
 async def login_user(user:LoginUser = Depends()):
     user_validated = validate_user(user.anb,user.password)
