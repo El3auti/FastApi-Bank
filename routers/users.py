@@ -44,13 +44,6 @@ async def login_user(user:LoginUser = Depends()):
     user_validated = validate_user(user.anb,user.password)
     return create_token(user_validated["name"])
 
-@router.patch("user/addmoney/{money:int}",status_code=201)
-async def add_money(money:int, user:UserPrivate = Depends(auth_user)):
-    with engine.connect() as conection:
-        conection.execute(User.update().where(User.c.id == user.id).values(money = money))
-        conection.commit()
-    return {"SUCCESS YOU ARE RICH"}
-
 
 
 

@@ -1,9 +1,7 @@
 from typing import Optional
-from fastapi import HTTPException,status
 from pydantic import BaseModel, validator
 from passlib.context import CryptContext
-from config.db import engine
-from models.User import User
+
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 

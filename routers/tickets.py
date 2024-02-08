@@ -1,55 +1,51 @@
-from fastapi import APIRouter,Depends,HTTPException,status
-from config.db import engine
-from routers.users import auth_user
-from models.User import User
+from fastapi import APIRouter,Depends
+from utils.auth import auth_user
 from models.Tickets import Tickets
 from schema.users import UserPrivate
-from schema.tickets import TicketsCreate,TicketsShow
-from sqlalchemy.exc import SQLAlchemyError
-from datetime import datetime
+from schema.tickets import TicketsCreate
+from utils.users import get_user_by_anb,update_users_transaction
+from utils.tickets import validate_tickets,create_ticket_db,get_tickets_by_receive_or_sent,create_ticket_obj,validate_tickets_add_money
 
 router = APIRouter(prefix="/bank")
 
 @router.post('/transaction')
-async def send_money(data:TicketsCreate, user:UserPrivate = Depends(auth_user)):
-    with engine.connect() as conection:
-        try:
-            to_send = conection.execute(User.select().where(User.c.anb == data.anb)).first()._asdict()
-        except AttributeError:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recipient not found")
-
-        if user.id == to_send['id']:
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="User not found in the database")
-
-        if user.money < data.amount:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Not enough money")
+async def create_transaction(ticket:TicketsCreate, user_send:UserPrivate = Depends(auth_user)):
+        # Recupera el usuario que recibirá el dinero basándose en el número de cuenta proporcionado en el ticket
+        user_receive = get_user_by_anb(ticket.anb)
         
-        ticket = {
-            "user_id_send":user.id,
-            "user_id_receive": to_send["id"],
-            "timestamp": datetime.now(),
-            "amount":data.amount
-            }
+        # Valida los detalles de la transacción
+        ticket_validate = validate_tickets(user_send,user_receive, ticket)
+        
+        # Actualiza los saldos de las cuentas de los usuarios que envían y reciben
+        update_users_transaction(user_send,user_receive,ticket_validate.amount)
+        
+        # Crea un nuevo ticket en la base de datos
+        create_ticket_db(ticket_validate)
+        
+        return create_ticket_obj(user_send,user_receive,ticket.amount)
 
-        try:
-            if user.money >= data.amount: 
-                conection.execute(User.update().where(User.c.anb == data.anb).values(money = to_send["money"] + data.amount))
-                conection.execute(User.update().where(User.c.anb == user.anb).values(money = user.money - data.amount))
-                conection.execute(Tickets.insert().values(ticket))
-                conection.commit()
-        except SQLAlchemyError as e:
-            conection.rollback()
-            raise HTTPException(status_code=500, detail=str(e))
-    
-        return {"Transfer Details": TicketsShow(**ticket, time=ticket["timestamp"])}
-
-@router.get('/transaction/historial/send')
+@router.get('/transaction/history/send')
 async def get_tickets_sent(user:UserPrivate = Depends(auth_user)):
-    with engine.connect() as conection:
-        return [TicketsShow(**ticket._asdict(),time=ticket._asdict()["timestamp"]) for ticket in conection.execute(Tickets.select().where(Tickets.c.user_id_send == user.id))]
+   # Recupera los tickets recibidos por el usuario
+   return get_tickets_by_receive_or_sent(user.id,Tickets.c.user_id_send)
 
+@router.get('/transaction/history/received')
+async def get_tickets_receive(user:UserPrivate = Depends(auth_user)):
+   # Recupera los tickets recibidos por el usuario
+   return get_tickets_by_receive_or_sent(user.id,Tickets.c.user_id_receive)
 
-@router.get('/transaction/historial/recibe')
-async def get_tickets_recibe(user:UserPrivate = Depends(auth_user)):
-    with engine.connect() as conection:
-        return [TicketsShow(**ticket._asdict(),time=ticket._asdict()["timestamp"]) for ticket in conection.execute(Tickets.select().where(Tickets.c.user_id_receive == user.id))]
+@router.patch("/transaction/addmoney/{money:int}",status_code=201)
+async def add_money(money:int, user:UserPrivate = Depends(auth_user)):
+      # Valida que la cantidad de dinero a añadir sea mayor que cero
+      validate_tickets_add_money(money)
+
+      # Crea un nuevo objeto de ticket para la transacción de añadir dinero
+      ticket_validate = create_ticket_obj(user,user,money)
+
+      # Actualiza el saldo del usuario en la base de datos para reflejar el dinero añadido
+      update_users_transaction(user,user,money)
+
+      # Guarda el nuevo ticket en la base de datos
+      create_ticket_db(ticket_validate)
+
+      return ticket_validate      

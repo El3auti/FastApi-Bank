@@ -2,6 +2,7 @@ from pydantic import BaseModel
 from datetime import datetime
 
 
+
 class TicketsCreate(BaseModel):
     amount:int
     anb:int
@@ -9,5 +10,5 @@ class TicketsCreate(BaseModel):
 class TicketsShow(BaseModel):
     user_id_send:int
     user_id_receive:int
-    time:datetime
+    timestamp:datetime
     amount:int     

@@ -10,5 +10,4 @@ Tickets = Table(
     Column("timestamp", DateTime, nullable=False),
     Column("amount", Integer, nullable=False)
     )
-
 meta_data.create_all(engine)
