@@ -8,6 +8,7 @@ from config.db import engine
 from models.User import User
 from passlib.context import CryptContext
 from schema.users import UserPrivate
+from schema.token import Token
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -17,10 +18,9 @@ ALGORITHM = os.getenv("ALGORITHM")
 ACCESS_TOKEN_EXPIRE_MINUTES = os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES")
 
 def create_token(name):
-    access_token = {"sub":name,
-                    "exp":datetime.utcnow() + timedelta(minutes=int(ACCESS_TOKEN_EXPIRE_MINUTES)),
-                    }
-    return {"access_token": jwt.encode(access_token,SECRET_KEY,algorithm=ALGORITHM),"token_type":"JWT"}
+    access_token= {"sub":name,
+                 "exp":datetime.utcnow() + timedelta(minutes=int(ACCESS_TOKEN_EXPIRE_MINUTES))}
+    return Token(access_token =  jwt.encode(access_token,SECRET_KEY,algorithm=ALGORITHM),token_type="JWT")
 
 def validate_user(anb,password):
     with engine.connect() as conection:
